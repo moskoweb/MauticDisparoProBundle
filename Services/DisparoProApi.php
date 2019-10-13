@@ -76,7 +76,7 @@ class DisparoProApi extends AbstractSmsApi
                         "servico" => "short",
                         "mensagem" => $content,
                         "parceiro_id" => "MauticApi",
-                        "codificacao" => "16",
+                        "codificacao" => "7",
                     ],
                 ];
                 try {
