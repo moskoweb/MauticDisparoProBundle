@@ -38,7 +38,6 @@ class DisparoProIntegration extends AbstractIntegration
     {
         return [
             'auth_token' => 'mautic.plugin.disparopro.auth_token',
-            'partner_id' => 'mautic.plugin.disparopro.partner_id',
         ];
     }
 
@@ -69,6 +68,5 @@ class DisparoProIntegration extends AbstractIntegration
      * @param string                                            $formArea
      */
     public function appendToForm(&$builder, $data, $formArea)
-    {
-    }
+    { }
 }

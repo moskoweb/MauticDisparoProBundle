@@ -18,8 +18,8 @@ use Monolog\Logger;
 class DisparoProApi extends AbstractSmsApi
 {
     /**
-    * @var Logger
-    */
+     * @var Logger
+     */
     protected $logger;
 
     /**
@@ -39,44 +39,44 @@ class DisparoProApi extends AbstractSmsApi
         parent::__construct($pageTrackableModel);
     }
     /**
-    * @param $number
-    *
-    * @return string
-    *
-    * @throws NumberParseException
-    */
+     * @param $number
+     *
+     * @return string
+     *
+     * @throws NumberParseException
+     */
     protected function sanitizeNumber($number)
     {
         $util   = PhoneNumberUtil::getInstance();
         $parsed = $util->parse($number, 'BR');
         return $util->format($parsed, PhoneNumberFormat::E164);
     }
-    
+
     /**
-    * @param Lead   $contact
-    * @param string $content
-    *
-    * @return bool|mixed|string
-    */
+     * @param Lead   $contact
+     * @param string $content
+     *
+     * @return bool|mixed|string
+     */
     public function sendSms(Lead $contact, $content)
     {
         $number = $contact->getLeadPhoneNumber();
-        
+
         if ($number === null) {
             return false;
         }
-        
+
         $integration = $this->integrationHelper->getIntegrationObject('DisparoPro');
         if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
             $data   = $integration->getDecryptedApiKeys();
-            if (isset($data['auth_token']) && isset($data['partner_id'])) {
+            if (isset($data['auth_token'])) {
                 $body = [
                     [
                         "numero" => $this->sanitizeNumber($number),
                         "servico" => "short",
                         "mensagem" => $content,
-                        "parceiro_id" => $data['partner_id'],
-                        "codificacao" => "0",
+                        "parceiro_id" => "MauticApi",
+                        "codificacao" => "16",
                     ],
                 ];
                 try {
@@ -86,28 +86,27 @@ class DisparoProApi extends AbstractSmsApi
                     ];
 
                     $client = new Client();
-                    $response = $client->post('https://api.disparopro.com.br/mt', [
-                        'headers' => $headers,
-                        'body' => json_encode($body),
+                    $response = $client->post(
+                        'https://api.disparopro.com.br/mt',
+                        [
+                            'headers' => $headers,
+                            'body' => json_encode($body),
                         ]
                     );
-                        
+
                     return ($response->getStatusCode() == 200) ? true : false;
                 } catch (ServerException $exception) {
                     $this->parseResponse($exception->getResponse(), $body);
                 } catch (Exception $e) {
-                        if (method_exists($e, 'getErrorMessage')) {
-                            return $e->getErrorMessage();
-                        } elseif (!empty($e->getMessage())) {
-                            return $e->getMessage();
-                        }
-                        
-                        return false;
+                    if (method_exists($e, 'getErrorMessage')) {
+                        return $e->getErrorMessage();
+                    } elseif (!empty($e->getMessage())) {
+                        return $e->getMessage();
                     }
+
+                    return false;
                 }
             }
         }
     }
-    
-
-    
+}
