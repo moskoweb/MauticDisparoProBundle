@@ -3,6 +3,7 @@
 namespace MauticPlugin\MauticDisparoProBundle\Integration;
 
 use Mautic\PluginBundle\Integration\AbstractIntegration;
+use Mautic\CoreBundle\Form\Type\YesNoButtonGroupType;
 
 /**
  * Class DisparoProIntegration.
