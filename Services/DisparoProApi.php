@@ -4,19 +4,20 @@ namespace MauticPlugin\MauticDisparoProBundle\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ServerException;
-use GuzzleHttp\Psr7\Response;
-use Mautic\SmsBundle\Api\AbstractSmsApi;
+use Mautic\SmsBundle\Sms\TransportInterface;
 use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
-use Mautic\CoreBundle\Helper\PhoneNumberHelper;
 use Mautic\LeadBundle\Entity\Lead;
-use Mautic\PageBundle\Model\TrackableModel;
-use Mautic\PluginBundle\Helper\IntegrationHelper;
-use Monolog\Logger;
+use Psr\Log\LoggerInterface;
 
-class DisparoProApi extends AbstractSmsApi
+class DisparoProApi extends TransportInterface
 {
+    /**
+     * @var Configuration
+     */
+    private $configuration;
+    
     /**
      * @var Logger
      */
@@ -25,18 +26,15 @@ class DisparoProApi extends AbstractSmsApi
     /**
      * MessageBirdApi constructor.
      *
-     * @param TrackableModel    $pageTrackableModel
-     * @param PhoneNumberHelper $phoneNumberHelper
-     * @param IntegrationHelper $integrationHelper
-     * @param Logger            $logger
+     * @param Configuration            $configuration
+     * @param LoggerInterface          $logger
      *
      * @param Http              $http
      */
-    public function __construct(TrackableModel $pageTrackableModel, PhoneNumberHelper $phoneNumberHelper, IntegrationHelper $integrationHelper, Logger $logger)
+    public function __construct(Configuration $configuration, LoggerInterface $logger)
     {
-        $this->logger = $logger;
-        $this->integrationHelper = $integrationHelper;
-        parent::__construct($pageTrackableModel);
+        $this->logger        = $logger;
+        $this->configuration = $configuration;
     }
     /**
      * @param $number
@@ -53,58 +51,68 @@ class DisparoProApi extends AbstractSmsApi
     }
 
     /**
-     * @param Lead   $contact
+     * @param Lead   $lead
      * @param string $content
      *
      * @return bool|mixed|string
      */
-    public function sendSms(Lead $contact, $content)
+    public function sendSms(Lead $lead, $content)
     {
-        $number = $contact->getLeadPhoneNumber();
+        $number = $lead->getLeadPhoneNumber();
 
-        if ($number === null) {
+        if (null === $number) {
             return false;
         }
+        
+        try {
+            $this->configureClient();
 
-        $integration = $this->integrationHelper->getIntegrationObject('DisparoPro');
-        if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
-            $data   = $integration->getDecryptedApiKeys();
-            if (isset($data['auth_token'])) {
-                $body = [
-                    [
-                        "numero" => $this->sanitizeNumber($number),
-                        "servico" => "short",
-                        "mensagem" => $content,
-                        "parceiro_id" => "MauticApi",
-                    ],
+            $this->client->messages->create(
+                $this->sanitizeNumber($number),
+                [
+                    'from' => $this->sendingPhoneNumber,
+                    'body' => $content,
+                ]
+            );
+
+            return true;
+        } 
+
+        if ($this->configuration->getAuthToken()) {
+            $body = [
+                [
+                    "numero" => $this->sanitizeNumber($number),
+                    "servico" => "short",
+                    "mensagem" => $content,
+                    "parceiro_id" => "MauticApi",
+                ],
+            ];
+            try {
+                $headers = [
+                    'Authorization' => 'Bearer ' . $this->configuration->getAuthToken(),
+                    'Content-Type'  => 'application/json',
                 ];
-                try {
-                    $headers = [
-                        'Authorization' => 'Bearer ' . $data['auth_token'],
-                        'Content-Type'  => 'application/json',
-                    ];
 
-                    $client = new Client();
-                    $response = $client->post(
-                        'https://api.disparopro.com.br/mt',
-                        [
-                            'headers' => $headers,
-                            'body' => json_encode($body),
-                        ]
-                    );
+                $client = new Client();
+                $response = $client->post(
+                    'https://apihttp.disparopro.com.br:8433/mt',
+                    [
+                        'headers' => $headers,
+                        'body' => json_encode($body),
+                    ]
+                );
 
-                    return ($response->getStatusCode() == 200) ? true : false;
-                } catch (ServerException $exception) {
-                    $this->parseResponse($exception->getResponse(), $body);
-                } catch (Exception $e) {
-                    if (method_exists($e, 'getErrorMessage')) {
-                        return $e->getErrorMessage();
-                    } elseif (!empty($e->getMessage())) {
-                        return $e->getMessage();
-                    }
-
-                    return false;
+                return ($response->getStatusCode() == 200) ? true : false;
+            } catch (ServerException $exception) {
+                $this->parseResponse($exception->getResponse(), $body);
+            } catch (Exception $e) {
+                if (method_exists($e, 'getErrorMessage')) {
+                    return $e->getErrorMessage();
+                } elseif (!empty($e->getMessage())) {
+                    return $e->getMessage();
                 }
+
+                return false;
             }
         }
     }
