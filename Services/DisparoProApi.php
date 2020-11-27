@@ -10,9 +10,15 @@ use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
 use Mautic\LeadBundle\Entity\Lead;
 use Psr\Log\LoggerInterface;
+use Mautic\PluginBundle\Helper\IntegrationHelper;
 
 class DisparoProApi extends TransportInterface
 {
+    /**
+     * @var IntegrationHelper
+     */
+    private $integrationHelper;
+
     /**
      * @var Configuration
      */
@@ -31,10 +37,11 @@ class DisparoProApi extends TransportInterface
      *
      * @param Http              $http
      */
-    public function __construct(Configuration $configuration, LoggerInterface $logger)
+    public function __construct(Configuration $configuration, LoggerInterface $logger, IntegrationHelper $integrationHelper)
     {
         $this->logger        = $logger;
         $this->configuration = $configuration;
+        $this->integrationHelper = $integrationHelper;
     }
     /**
      * @param $number
@@ -64,21 +71,19 @@ class DisparoProApi extends TransportInterface
             return false;
         }
         
-        try {
-            $this->configureClient();
+        $integration = $this->integrationHelper->getIntegrationObject('DisparoPro');
+        
+        if (!$integration || !$integration->getIntegrationSettings()->getIsPublished()) {
+            return false;
+        }
 
-            $this->client->messages->create(
-                $this->sanitizeNumber($number),
-                [
-                    'from' => $this->sendingPhoneNumber,
-                    'body' => $content,
-                ]
-            );
+        $keys = $integration->getDecryptedApiKeys();
+        if (empty($keys['auth_token'])) {
+            return false;
+        }
+        
 
-            return true;
-        } 
-
-        if ($this->configuration->getAuthToken()) {
+        if ($keys['auth_token']) {
             $body = [
                 [
                     "numero" => $this->sanitizeNumber($number),
@@ -89,7 +94,7 @@ class DisparoProApi extends TransportInterface
             ];
             try {
                 $headers = [
-                    'Authorization' => 'Bearer ' . $this->configuration->getAuthToken(),
+                    'Authorization' => 'Bearer ' . $keys['auth_token'],
                     'Content-Type'  => 'application/json',
                 ];
 
