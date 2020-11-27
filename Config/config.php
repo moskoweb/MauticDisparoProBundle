@@ -13,24 +13,25 @@ return [
     'name'        => 'Disparo Pro',
     'description' => 'Disparo Pro SMS integration',
     'author'      => 'https://alanmosko.com.br/',
-    'version'     => '1.0.0',
+    'version'     => '1.0.1',
     'services' => [
         'events'  => [],
         'forms'   => [],
         'helpers' => [],
         'other'   => [
-            'mautic.sms.transport.disparopro' => [
+            'mautic.sms.disparopro.transport' => [
                 'class'     => \MauticPlugin\MauticDisparoProBundle\Services\DisparoProApi::class,
                 'arguments' => [
-                    'mautic.page.model.trackable',
-                    'mautic.helper.phone_number',
-                    'mautic.helper.integration',
+                    'mautic.sms.twilio.configuration',
                     'monolog.logger.mautic',
                 ],
-                'alias' => 'mautic.sms.config.transport.disparopro',
                 'tag'          => 'mautic.sms_transport',
                 'tagArguments' => [
                     'integrationAlias' => 'DisparoPro',
+                ],
+                'serviceAliases' => [
+                    'sms_api',
+                    'mautic.sms.api',
                 ],
             ],
         ],
