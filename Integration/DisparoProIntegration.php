@@ -82,5 +82,6 @@ class DisparoProIntegration extends AbstractIntegration
                     'data'=> !empty($data['disable_trackable_urls']) ? true : false,
                 ]
             );
+        }
     }
 }
